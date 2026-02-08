@@ -3,16 +3,52 @@
 <head>
   <meta charset="UTF-8">
   <style>
+    * {
+      box-sizing: border-box;
+    }
     body {
-      width: 300px;
+      width: 350px;
       padding: 16px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
+      margin: 0;
     }
     h2 {
       margin: 0 0 16px 0;
-      font-size: 18px;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .tab {
+      flex: 1;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.15);
+      border: none;
+      border-radius: 8px;
+      color: white;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background 0.2s;
+    }
+    .tab:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+    .tab.active {
+      background: white;
+      color: #764ba2;
+    }
+    .panel {
+      display: none;
+    }
+    .panel.active {
+      display: block;
     }
     .input-group {
       margin-bottom: 12px;
@@ -23,19 +59,9 @@
       font-size: 12px;
       opacity: 0.9;
     }
-    textarea {
+    select, input[type="number"] {
       width: 100%;
-      height: 80px;
-      padding: 8px;
-      border: none;
-      border-radius: 8px;
-      resize: vertical;
-      font-size: 14px;
-      box-sizing: border-box;
-    }
-    input[type="number"] {
-      width: 80px;
-      padding: 8px;
+      padding: 10px;
       border: none;
       border-radius: 8px;
       font-size: 14px;
@@ -51,9 +77,69 @@
       font-weight: 600;
       cursor: pointer;
       transition: transform 0.1s;
+      margin-top: 8px;
     }
     button:hover {
       transform: scale(1.02);
+    }
+    button.secondary {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .stat {
+      background: rgba(255, 255, 255, 0.15);
+      padding: 12px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .stat-label {
+      font-size: 10px;
+      opacity: 0.8;
+      text-transform: uppercase;
+    }
+    .word-list {
+      max-height: 200px;
+      overflow-y: auto;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+      padding: 8px;
+      margin-bottom: 12px;
+    }
+    .word-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 8px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .word-item:nth-child(odd) {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .word-level {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.2);
+    }
+    .file-input-wrapper {
+      position: relative;
+    }
+    .file-input-wrapper input[type="file"] {
+      position: absolute;
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
     }
     .status {
       margin-top: 12px;
@@ -61,25 +147,213 @@
       text-align: center;
       opacity: 0.9;
     }
+    .level-colors {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      font-size: 10px;
+    }
+    .level-colors span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .level-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .level-dot.l1 { background: #4CAF50; }
+    .level-dot.l2 { background: #FF9800; }
+    .level-dot.l3 { background: #f44336; }
+    .level-dot.l4 { background: #9C27B0; }
+    .credit-display {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .credit-box {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 215, 0, 0.2);
+      padding: 12px;
+      border-radius: 12px;
+    }
+    .streak-box {
+      background: rgba(255, 100, 0, 0.2);
+    }
+    .credit-icon {
+      font-size: 24px;
+    }
+    .credit-value {
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .credit-label {
+      font-size: 10px;
+      opacity: 0.8;
+    }
+    .how-it-works {
+      background: rgba(0, 0, 0, 0.2);
+      padding: 12px;
+      border-radius: 8px;
+      margin: 16px 0;
+      font-size: 12px;
+    }
+    .how-it-works p {
+      margin: 4px 0;
+      opacity: 0.9;
+    }
+    .how-it-works strong {
+      display: block;
+      margin-bottom: 8px;
+    }
+    .session-list {
+      max-height: 150px;
+      overflow-y: auto;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+      padding: 8px;
+      margin-bottom: 12px;
+      font-size: 11px;
+    }
+    .session-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .session-item:last-child {
+      border-bottom: none;
+    }
+    .session-date {
+      opacity: 0.7;
+    }
+    .session-stats {
+      display: flex;
+      gap: 8px;
+    }
+    .session-stat {
+      background: rgba(255,255,255,0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .all-time-stats {
+      background: rgba(255, 215, 0, 0.15);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+      font-size: 12px;
+    }
+    .all-time-stats p {
+      margin: 4px 0;
+    }
   </style>
 </head>
 <body>
   <h2>📚 InstaLearning</h2>
   
-  <div class="input-group">
-    <label>Your Message</label>
-    <textarea id="message" placeholder="Enter your custom message..."></textarea>
+  <div class="tabs">
+    <button class="tab active" data-tab="settings">Settings</button>
+    <button class="tab" data-tab="words">Words</button>
+    <button class="tab" data-tab="stats">Stats</button>
   </div>
-  
-  <div class="input-group">
-    <label>Show every X swipes</label>
-    <input type="number" id="frequency" min="1" max="20" value="3">
+
+  <!-- Settings Panel -->
+  <div class="panel active" id="settings">
+    <div class="credit-display">
+      <div class="credit-box">
+        <div class="credit-icon">💰</div>
+        <div class="credit-info">
+          <div class="credit-value" id="currentCredits">0</div>
+          <div class="credit-label">Credits</div>
+        </div>
+      </div>
+      <div class="credit-box streak-box">
+        <div class="credit-icon">🔥</div>
+        <div class="credit-info">
+          <div class="credit-value" id="currentStreak">0</div>
+          <div class="credit-label">Streak</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="input-group">
+      <label>Quiz Direction</label>
+      <select id="direction">
+        <option value="german-to-dutch">German → Dutch</option>
+        <option value="dutch-to-german">Dutch → German</option>
+        <option value="mixed">Mixed (Both)</option>
+      </select>
+    </div>
+    
+    <button id="saveSettings">Save Settings</button>
+    
+    <div class="how-it-works">
+      <strong>How it works:</strong>
+      <p>✓ Correct answer = +1 credit</p>
+      <p>📱 Each swipe costs 1 credit</p>
+      <p>🔥 Streak bonuses: 3→+2, 5→+3, 7→+5, 10→+10</p>
+    </div>
+    
+    <div class="level-colors">
+      <span><div class="level-dot l1"></div> L1: Choice</span>
+      <span><div class="level-dot l2"></div> L2: Hints</span>
+      <span><div class="level-dot l3"></div> L3: Reverse</span>
+      <span><div class="level-dot l4"></div> L4: Speed</span>
+    </div>
   </div>
-  
-  <button id="save">Save Settings</button>
-  
-  <div class="status" id="status"></div>
-  
+
+  <!-- Words Panel -->
+  <div class="panel" id="words">
+    <div class="word-list" id="wordList">
+      Loading...
+    </div>
+    
+    <div class="file-input-wrapper">
+      <button class="secondary">📁 Import CSV</button>
+      <input type="file" id="csvImport" accept=".csv">
+    </div>
+    
+    <button id="resetWords" class="secondary">↺ Reset to Default</button>
+    
+    <div class="status" id="wordStatus"></div>
+  </div>
+
+  <!-- Stats Panel -->
+  <div class="panel" id="stats">
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-value" id="totalWords">0</div>
+        <div class="stat-label">Total Words</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="masteredWords">0</div>
+        <div class="stat-label">Mastered (L4)</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="inProgress">0</div>
+        <div class="stat-label">In Progress</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="newWords">0</div>
+        <div class="stat-label">New (L1)</div>
+      </div>
+    </div>
+    
+    <h3 style="margin: 16px 0 8px; font-size: 14px;">📊 Recent Sessions</h3>
+    <div class="session-list" id="sessionList">
+      No sessions yet
+    </div>
+    
+    <div class="all-time-stats" id="allTimeStats"></div>
+    
+    <button id="resetProgress" class="secondary">Reset All Progress</button>
+  </div>
+
+  <script src="words.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
