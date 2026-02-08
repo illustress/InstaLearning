@@ -81,6 +81,24 @@ document.getElementById('saveSettings').addEventListener('click', () => {
   });
 });
 
+// Open quiz on Instagram tab
+document.getElementById('openQuiz').addEventListener('click', () => {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const activeTab = tabs && tabs[0];
+    if (!activeTab?.url?.includes('instagram.com')) {
+      showStatus('settings', 'Open Instagram first!');
+      return;
+    }
+    chrome.tabs.sendMessage(activeTab.id, { type: 'OPEN_QUIZ' }, () => {
+      if (chrome.runtime.lastError) {
+        showStatus('settings', 'Refresh Instagram page');
+        return;
+      }
+      window.close();
+    });
+  });
+});
+
 // Load word list
 function loadWordList() {
   chrome.storage.sync.get(['customWords', 'wordProgress'], (data) => {

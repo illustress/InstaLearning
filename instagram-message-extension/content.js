@@ -1,6 +1,6 @@
 // InstaLearning - Content Script with All Features
 
-let settings = { direction: 'german-to-dutch', correctAction: 'next' };
+let settings = { direction: 'german-to-dutch' };
 let wordProgress = {};
 let words = [];
 let credits = 0;
@@ -13,19 +13,32 @@ let hintTimer = null;
 let speedRoundTimer = null;
 let hasAnsweredCurrentQuiz = false;
 let doubleOrNothingActive = false;
-let currentGameMode = 'quiz'; // 'quiz', 'scramble', 'hangman', 'match'
-let feedSwipeCount = 0;
-const FEED_QUIZ_EVERY = 4;
+let currentGameMode = 'quiz';
+let currentLevel = 1;
+let currentMultiplier = 1;
 let extensionContextAlive = true;
+let feedSwipeCount = 0;
+const FEED_QUIZ_EVERY = 5;
+
+// Level multipliers - higher risk = higher reward
+const LEVEL_MULTIPLIERS = {
+  1: 1,    // Multiple choice - easy
+  2: 2,    // Type with hints
+  3: 3,    // Reverse, no hints
+  4: 5     // Speed round
+};
+
+const GAME_MULTIPLIERS = {
+  quiz: 1,
+  scramble: 2,
+  hangman: 3,
+  match: 2
+};
 
 // Streak bonuses
 const STREAK_BONUSES = { 3: 2, 5: 3, 7: 5, 10: 10 };
-const CORRECT_ACTION_VALUES = new Set(['ask', 'next', 'instagram']);
 function getStreakBonus(s) { return STREAK_BONUSES[s] || 0; }
 function isLetter(char) { return /\p{L}/u.test(char); }
-function normalizeCorrectAction(value) {
-  return CORRECT_ACTION_VALUES.has(value) ? value : 'next';
-}
 function escapeHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -68,49 +81,20 @@ function showConfetti() {
 // Load data
 async function loadData() {
   return new Promise((resolve) => {
-    try {
-      if (!isExtensionContextAlive()) {
-        startSession();
-        resolve();
-        return;
-      }
-
-      chrome.storage.sync.get(['direction', 'correctAction', 'wordProgress', 'customWords', 'credits', 'streak'], (data) => {
-        if (chrome.runtime?.lastError) {
-          markExtensionContextInvalid(chrome.runtime.lastError);
-          startSession();
-          resolve();
-          return;
-        }
-
-        if (data.direction) settings.direction = data.direction;
-        settings.correctAction = normalizeCorrectAction(data.correctAction);
-        if (data.wordProgress) wordProgress = data.wordProgress;
-        if (typeof data.credits === 'number') credits = data.credits;
-        if (typeof data.streak === 'number') streak = data.streak;
-        words = data.customWords?.length > 0 ? data.customWords : DEFAULT_WORDS;
-        startSession();
-        resolve();
-      });
-    } catch (error) {
-      markExtensionContextInvalid(error);
+    chrome.storage.sync.get(['direction', 'wordProgress', 'customWords', 'credits', 'streak'], (data) => {
+      if (data.direction) settings.direction = data.direction;
+      if (data.wordProgress) wordProgress = data.wordProgress;
+      if (typeof data.credits === 'number') credits = data.credits;
+      if (typeof data.streak === 'number') streak = data.streak;
+      words = data.customWords?.length > 0 ? data.customWords : DEFAULT_WORDS;
       startSession();
       resolve();
-    }
+    });
   });
 }
 
 function saveProgress() {
-  if (!isExtensionContextAlive()) return;
-  try {
-    chrome.storage.sync.set({ wordProgress, credits, streak }, () => {
-      if (chrome.runtime?.lastError) {
-        markExtensionContextInvalid(chrome.runtime.lastError);
-      }
-    });
-  } catch (error) {
-    markExtensionContextInvalid(error);
-  }
+  chrome.storage.sync.set({ wordProgress, credits, streak });
 }
 
 function startSession() {
@@ -118,8 +102,6 @@ function startSession() {
 }
 
 function saveSession() {
-  if (!isExtensionContextAlive()) return;
-
   const duration = Math.floor((Date.now() - sessionStats.startTime) / 1000);
   if (sessionStats.correct === 0 && sessionStats.wrong === 0) return;
   
@@ -179,16 +161,28 @@ window.addEventListener('unhandledrejection', (event) => {
   }
 });
 
-if (isExtensionContextAlive()) {
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== 'sync') return;
-    if (changes.direction) settings.direction = changes.direction.newValue;
-    if (changes.correctAction) settings.correctAction = normalizeCorrectAction(changes.correctAction.newValue);
-    if (changes.wordProgress) wordProgress = changes.wordProgress.newValue || {};
-    if (changes.credits) credits = changes.credits.newValue || 0;
-    if (changes.streak) streak = changes.streak.newValue || 0;
-    if (changes.customWords) words = changes.customWords.newValue?.length > 0 ? changes.customWords.newValue : DEFAULT_WORDS;
-  });
+if (extensionContextAlive) {
+  try {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area !== 'sync') return;
+      if (changes.direction) settings.direction = changes.direction.newValue;
+      if (changes.wordProgress) wordProgress = changes.wordProgress.newValue || {};
+      if (changes.credits) credits = changes.credits.newValue || 0;
+      if (changes.streak) streak = changes.streak.newValue || 0;
+      if (changes.customWords) words = changes.customWords.newValue?.length > 0 ? changes.customWords.newValue : DEFAULT_WORDS;
+    });
+    
+    // Listen for messages from popup
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      if (message.type === 'OPEN_QUIZ') {
+        showGamePicker();
+        sendResponse({ success: true });
+      }
+      return true;
+    });
+  } catch (e) {
+    markExtensionContextInvalid(e);
+  }
 }
 
 function isExtensionContextAlive() {
@@ -430,50 +424,34 @@ function showActionButtons(wasCorrect) {
   if (!actions) return;
   actions.innerHTML = '';
   
-  // Mini-game buttons
-  const gameRow = document.createElement('div');
-  gameRow.className = 'il-game-row';
-  gameRow.innerHTML = `
-    <button class="il-mini-btn" data-game="scramble">🔀 Scramble</button>
-    <button class="il-mini-btn" data-game="hangman">☠️ Hangman</button>
-    <button class="il-mini-btn" data-game="match">🎯 Match</button>
-  `;
-  gameRow.querySelectorAll('.il-mini-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      currentGameMode = btn.dataset.game;
-      hideQuiz();
-      setTimeout(() => showMiniGame(btn.dataset.game), 300);
-    });
-  });
-  actions.appendChild(gameRow);
-  
   if (wasCorrect && credits > 0) {
-    const keepBtn = document.createElement('button');
-    keepBtn.className = 'il-action-btn il-learn-btn';
-    keepBtn.textContent = '📚 Keep Learning';
-    keepBtn.addEventListener('click', () => { hideQuiz(); setTimeout(showQuiz, 300); });
+    // Next challenge button - goes back to picker
+    const nextBtn = document.createElement('button');
+    nextBtn.className = 'il-action-btn il-learn-btn';
+    nextBtn.textContent = '🎯 Next Challenge';
+    nextBtn.addEventListener('click', () => { hideQuiz(); setTimeout(showGamePicker, 300); });
     
     const watchBtn = document.createElement('button');
     watchBtn.className = 'il-action-btn il-watch-btn';
     watchBtn.textContent = `📱 Watch Instagram (${credits} swipes)`;
     watchBtn.addEventListener('click', hideQuiz);
     
-    actions.appendChild(keepBtn);
+    actions.appendChild(nextBtn);
     actions.appendChild(watchBtn);
     
     // Double or nothing option
     if (credits >= 2) showDoubleOrNothing();
   } else if (wasCorrect) {
-    const keepBtn = document.createElement('button');
-    keepBtn.className = 'il-action-btn il-learn-btn';
-    keepBtn.textContent = '📚 Keep Learning (+1 credit)';
-    keepBtn.addEventListener('click', () => { hideQuiz(); setTimeout(showQuiz, 300); });
-    actions.appendChild(keepBtn);
+    const nextBtn = document.createElement('button');
+    nextBtn.className = 'il-action-btn il-learn-btn';
+    nextBtn.textContent = '🎯 Next Challenge';
+    nextBtn.addEventListener('click', () => { hideQuiz(); setTimeout(showGamePicker, 300); });
+    actions.appendChild(nextBtn);
   } else {
     const tryBtn = document.createElement('button');
     tryBtn.className = 'il-action-btn il-learn-btn';
-    tryBtn.textContent = '🔄 Try Another';
-    tryBtn.addEventListener('click', () => { hideQuiz(); setTimeout(showQuiz, 300); });
+    tryBtn.textContent = '🔄 Try Again';
+    tryBtn.addEventListener('click', () => { hideQuiz(); setTimeout(showGamePicker, 300); });
     actions.appendChild(tryBtn);
   }
 }
@@ -692,10 +670,13 @@ function showMatchGame() {
 function showMiniGame(game) {
   if (!quizOverlay) createOverlay();
   
+  currentGameMode = game;
+  currentMultiplier = GAME_MULTIPLIERS[game] || 1;
+  
   quizOverlay.querySelector('.il-quiz-feedback').innerHTML = '';
   quizOverlay.querySelector('.il-quiz-feedback').className = 'il-quiz-feedback';
   quizOverlay.querySelector('.il-quiz-actions').innerHTML = '';
-  quizOverlay.querySelector('.il-level-badge').textContent = game.toUpperCase();
+  quizOverlay.querySelector('.il-level-badge').textContent = `${game.toUpperCase()} (×${currentMultiplier})`;
   
   updateCreditDisplay();
   quizOverlay.classList.add('visible');
@@ -838,7 +819,10 @@ function handleAnswer(correct, correctAnswer) {
   
   if (correct) {
     streak++;
-    earnedCredits = doubleOrNothingActive ? credits : 1;
+    
+    // Apply multiplier based on level/game choice
+    const baseCredits = currentMultiplier;
+    earnedCredits = doubleOrNothingActive ? credits : baseCredits;
     
     if (doubleOrNothingActive) {
       credits *= 2;
@@ -857,8 +841,11 @@ function handleAnswer(correct, correctAnswer) {
       }
       const msg = document.createElement('span');
       msg.className = 'il-correct';
-      msg.textContent = `✓ Correct! +${earnedCredits} 💰`;
+      msg.textContent = `✓ Correct! +${earnedCredits} 💰 (×${currentMultiplier})`;
       feedback?.appendChild(msg);
+      
+      // Confetti for high multiplier wins
+      if (currentMultiplier >= 3) showConfetti();
     }
     
     sessionStats.correct++;
@@ -899,64 +886,128 @@ function handleAnswer(correct, correctAnswer) {
     return;
   }
 
-  const action = normalizeCorrectAction(settings.correctAction);
-  if (action === 'ask') {
-    setTimeout(() => showActionButtons(true), 800);
-    return;
-  }
-
-  if (action === 'next') {
-    setTimeout(() => {
-      if (!isShowingQuiz) return;
-      hideQuiz();
-      setTimeout(showQuiz, 300);
-    }, 900);
-    return;
-  }
-
-  // action === 'instagram'
-  setTimeout(() => {
-    if (!isShowingQuiz) return;
-    hideQuiz();
-  }, 900);
+  // Always show action buttons after correct answer
+  setTimeout(() => showActionButtons(true), 800);
 }
 
 
-// Show quiz
-function showQuiz() {
+// Show game picker - let user choose level and game type
+function showGamePicker() {
   if (isShowingQuiz || words.length === 0) return;
   
   clearTimers();
-  currentGameMode = 'quiz';
   const overlay = createOverlay();
+  
+  updateCreditDisplay();
+  
+  // Clear previous content
+  overlay.querySelector('.il-quiz-question').innerHTML = '';
+  overlay.querySelector('.il-word-info').innerHTML = '';
+  overlay.querySelector('.il-quiz-feedback').innerHTML = '';
+  overlay.querySelector('.il-quiz-actions').innerHTML = '';
+  overlay.querySelector('.il-level-badge').textContent = 'CHOOSE';
+  overlay.querySelector('.il-level-badge').className = 'il-level-badge';
+  
+  const content = overlay.querySelector('.il-quiz-content');
+  content.innerHTML = `
+    <div class="il-game-picker">
+      <h3 class="il-picker-title">🎯 Choose Your Challenge</h3>
+      
+      <div class="il-picker-section">
+        <div class="il-picker-label">Quiz Levels</div>
+        <div class="il-picker-grid">
+          <button class="il-picker-btn" data-type="quiz" data-level="1">
+            <span class="il-picker-icon">📝</span>
+            <span class="il-picker-name">Multiple Choice</span>
+            <span class="il-picker-mult">×1</span>
+          </button>
+          <button class="il-picker-btn" data-type="quiz" data-level="2">
+            <span class="il-picker-icon">💡</span>
+            <span class="il-picker-name">Type + Hints</span>
+            <span class="il-picker-mult">×2</span>
+          </button>
+          <button class="il-picker-btn" data-type="quiz" data-level="3">
+            <span class="il-picker-icon">🔄</span>
+            <span class="il-picker-name">Reverse</span>
+            <span class="il-picker-mult">×3</span>
+          </button>
+          <button class="il-picker-btn" data-type="quiz" data-level="4">
+            <span class="il-picker-icon">⚡</span>
+            <span class="il-picker-name">Speed Round</span>
+            <span class="il-picker-mult">×5</span>
+          </button>
+        </div>
+      </div>
+      
+      <div class="il-picker-section">
+        <div class="il-picker-label">Mini Games</div>
+        <div class="il-picker-grid">
+          <button class="il-picker-btn" data-type="scramble">
+            <span class="il-picker-icon">🔀</span>
+            <span class="il-picker-name">Word Scramble</span>
+            <span class="il-picker-mult">×2</span>
+          </button>
+          <button class="il-picker-btn" data-type="hangman">
+            <span class="il-picker-icon">☠️</span>
+            <span class="il-picker-name">Hangman</span>
+            <span class="il-picker-mult">×3</span>
+          </button>
+          <button class="il-picker-btn" data-type="match">
+            <span class="il-picker-icon">🎯</span>
+            <span class="il-picker-name">Match Pairs</span>
+            <span class="il-picker-mult">×2</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Add click handlers
+  content.querySelectorAll('.il-picker-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const type = btn.dataset.type;
+      const level = parseInt(btn.dataset.level) || 1;
+      
+      if (type === 'quiz') {
+        currentLevel = level;
+        currentMultiplier = LEVEL_MULTIPLIERS[level];
+        startQuizWithLevel(level);
+      } else {
+        currentGameMode = type;
+        currentMultiplier = GAME_MULTIPLIERS[type];
+        showMiniGame(type);
+      }
+    });
+  });
+  
+  overlay.classList.add('visible');
+  hasAnsweredCurrentQuiz = false;
+  isShowingQuiz = true;
+}
+
+// Start quiz with specific level
+function startQuizWithLevel(level) {
+  const overlay = quizOverlay;
   const { word, index } = pickWord();
-  const level = getWordLevel(index);
   const direction = getDirection();
   
   const question = direction === 'german-to-dutch' ? word.german : word.dutch;
   const answer = direction === 'german-to-dutch' ? word.dutch : word.german;
   
   currentQuiz = { word, index, direction, answer };
+  currentGameMode = 'quiz';
   
-  updateCreditDisplay();
   updateProgressBar(index);
   
-  overlay.querySelector('.il-level-badge').textContent = `Level ${level}`;
+  overlay.querySelector('.il-level-badge').textContent = `Level ${level} (×${LEVEL_MULTIPLIERS[level]})`;
   overlay.querySelector('.il-level-badge').className = `il-level-badge il-level-${level}`;
   
   setQuestion(direction, question);
-  
   showWordInfo(word, direction);
   
   overlay.querySelector('.il-quiz-feedback').innerHTML = '';
   overlay.querySelector('.il-quiz-feedback').className = 'il-quiz-feedback';
   overlay.querySelector('.il-quiz-actions').innerHTML = '';
-  
-  if (doubleOrNothingActive) {
-    overlay.querySelector('.il-quiz-header').classList.add('il-don-mode');
-  } else {
-    overlay.querySelector('.il-quiz-header').classList.remove('il-don-mode');
-  }
   
   switch (level) {
     case 1: showLevel1(answer, generateWrongAnswers(answer, direction === 'dutch-to-german')); break;
@@ -964,10 +1015,11 @@ function showQuiz() {
     case 3: showLevel3(direction); break;
     case 4: showLevel4(answer); break;
   }
-  
-  overlay.classList.add('visible');
-  hasAnsweredCurrentQuiz = false;
-  isShowingQuiz = true;
+}
+
+// Legacy showQuiz - now shows game picker
+function showQuiz() {
+  showGamePicker();
 }
 
 function hideQuiz() {
@@ -977,6 +1029,7 @@ function hideQuiz() {
   isShowingQuiz = false;
   hasAnsweredCurrentQuiz = false;
   currentQuiz = null;
+  currentMultiplier = 1;
 }
 
 function spendCredit() {
@@ -1191,19 +1244,7 @@ function handleSwipe() {
   }
   console.log(`[InstaLearning] Spent credit, remaining: ${credits}`);
 
-  // Feed mode: quiz cadence by swipe count, while still consuming credits.
-  if (isMainFeed(location.pathname)) {
-    feedSwipeCount++;
-    console.log(`[InstaLearning] Feed swipe count: ${feedSwipeCount}/${FEED_QUIZ_EVERY}`);
-    if (feedSwipeCount >= FEED_QUIZ_EVERY || credits <= 0) {
-      feedSwipeCount = 0;
-      console.log('[InstaLearning] Feed threshold/credits reached, showing quiz');
-      showQuiz();
-    }
-    return;
-  }
-
-  // Stories/Reels: continue until credits run out.
+  // Only show quiz when credits run out
   if (credits <= 0) showQuiz();
 }
 
@@ -1212,12 +1253,10 @@ async function init() {
   console.log('[InstaLearning] Initializing...');
   await loadData();
   console.log(`[InstaLearning] Loaded - credits: ${credits}, words: ${words.length}, path: ${location.pathname}`);
-  console.log(`[InstaLearning] isLearningContext: ${isLearningContext()}, isMainFeed: ${isMainFeed(location.pathname)}`);
   
-  if (credits <= 0 && isLearningContext()) {
-    console.log('[InstaLearning] No credits on learning page, showing quiz in 1s');
-    setTimeout(showQuiz, 1000);
-  }
+  // Always show game picker on Instagram load
+  console.log('[InstaLearning] Showing game picker on page load');
+  setTimeout(showGamePicker, 500);
   
   detectStoryNavigation();
   detectReelNavigation();
