@@ -2,17 +2,26 @@
 <html>
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     * {
       box-sizing: border-box;
     }
     body {
       width: 350px;
+      min-width: 280px;
       padding: 16px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
       margin: 0;
+    }
+    /* Mobile Firefox popup can be full width */
+    @media (max-width: 400px) {
+      body {
+        width: 100%;
+        min-height: 100vh;
+      }
     }
     h2 {
       margin: 0 0 16px 0;
@@ -286,6 +295,15 @@
         <option value="german-to-dutch">German → Dutch</option>
         <option value="dutch-to-german">Dutch → German</option>
         <option value="mixed">Mixed (Both)</option>
+      </select>
+    </div>
+
+    <div class="input-group">
+      <label>After Correct Answer</label>
+      <select id="correctAction">
+        <option value="next">Auto: Next Quiz</option>
+        <option value="instagram">Auto: Continue Instagram</option>
+        <option value="ask">Ask Me Each Time</option>
       </select>
     </div>
     

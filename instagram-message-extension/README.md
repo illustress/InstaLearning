@@ -2,86 +2,68 @@
 
 ## Smoke Test Checklist (Chrome)
 
-### 1. Load the extension
+### 1. Load extension
 1. Open `chrome://extensions`.
 2. Enable **Developer mode**.
 3. Click **Load unpacked** and select `instagram-message-extension`.
-4. Pin the extension so the popup is easy to open.
+4. Open popup and verify tabs render (`Settings`, `Words`, `Stats`).
 
 Expected:
-- Extension loads without errors in `chrome://extensions`.
-- Popup opens and shows `Settings`, `Words`, `Stats` tabs.
+- Extension loads without runtime errors.
 
-### 2. Basic settings persistence
-1. Open popup `Settings`.
-2. Set frequency to `2`, direction to `Mixed (Both)`.
-3. Click **Save Settings**.
-4. Close popup and open again.
+### 2. Settings and live sync
+1. In popup `Settings`, set direction to `Mixed (Both)` and click **Save Settings**.
+2. Keep an Instagram tab open and trigger a quiz.
 
 Expected:
-- Values remain `2` and `Mixed (Both)`.
-- A settings status message appears in the settings panel.
+- Saved direction persists after reopening popup.
+- Active tab follows updated direction rules without a page reload.
 
-### 3. Word import and safe rendering
-1. Create a CSV with:
-   - Header: `german,dutch`
-   - Row 1: `Hund,Hond`
-   - Row 2: `"<img src=x onerror=alert(1)>",Kat`
-2. In popup `Words`, import the CSV.
-3. Open the word list.
+### 3. CSV import safety
+1. Import a CSV in `Words` with a row like:
+   - `"<img src=x onerror=alert(1)>",Kat`
+2. Open `Words` list and run quizzes.
 
 Expected:
-- Import success message appears.
-- The `<img ...>` text is shown as plain text, not rendered as HTML.
-- No alert/pop-up script executes.
+- Imported text is displayed as plain text.
+- No HTML/script executes in popup or quiz overlay.
 
-### 4. Reset words and reset progress behavior
+### 4. Credits and swipe gating
+1. In Stories/Reels, answer one quiz correctly.
+2. Confirm credits increase.
+3. Keep swiping in Stories/Reels.
+
+Expected:
+- Swipes consume credits.
+- When credits reach `0`, quiz appears again.
+
+### 5. Hangman accented-letter behavior
+1. Start Hangman mini-game repeatedly until a word with characters like `ü`, `ß`, `ä`, `ö` appears.
+2. Complete the game.
+
+Expected:
+- Those letters are guessable from the keyboard.
+- Win condition works for accented words.
+
+### 6. Match game with small custom list
+1. Import a CSV with only 1-3 word pairs.
+2. Start Match mini-game.
+
+Expected:
+- Game remains winnable (target pairs adapt to available words).
+- Completing all shown pairs ends the game as correct.
+
+### 7. Reset flows
 1. In `Words`, click **Reset to Default**.
 2. In `Stats`, click **Reset All Progress**.
-3. Reopen popup and check `Stats`.
 
 Expected:
-- Word list reverts to defaults.
-- Stats reflect reset levels (all words effectively Level 1).
-- Status message appears in the correct panel (`Words` or `Stats`).
-
-### 5. Story/Reel context gating
-1. Go to `https://www.instagram.com/` (feed or non-story/non-reel area).
-2. Press arrow keys multiple times.
-
-Expected:
-- No quiz overlay appears outside Stories/Reels context.
-
-### 6. Quiz trigger in learning context
-1. Navigate to a Story or Reel URL (logged-in flow works best).
-2. With frequency set to `2`, perform two valid navigation actions (story taps/swipes, reel scrolls, or arrows in context).
-
-Expected:
-- Quiz overlay appears on schedule.
-- Level badge and question text render correctly.
-
-### 7. Level 4 skip/timer stability regression check
-1. Continue answering correctly until any word reaches Level 4 (or use existing progressed data).
-2. When a speed round appears, click **Skip** immediately.
-3. Stay on page for at least 6 seconds.
-
-Expected:
-- Overlay closes cleanly.
-- No crash, freeze, or broken quiz state.
-- Next quiz can still appear later.
-
-### 8. Import/reset sync across active Instagram tab
-1. Keep an Instagram tab open with extension active.
-2. In popup, import words or reset words/progress.
-3. Continue using quizzes in the same tab.
-
-Expected:
-- Active tab uses updated words/progress without requiring page reload.
-- Progress does not revert to old pre-reset values.
+- Words reset to defaults.
+- Progress/credits/streak/sessions reset.
+- Status message appears in the correct tab panel.
 
 ## Quick Pass Criteria
-- No console errors from extension scripts during the above checks.
-- No HTML/script injection from imported CSV values.
-- No quizzes outside Story/Reel contexts.
-- No Level 4 skip timer crash.
-- Import/reset/progress changes stay in sync across popup and active content script.
+- No extension console errors during all steps.
+- No HTML/script injection from CSV or stored values.
+- Hangman and Match mini-games are always completable for available data.
+- Popup status messages appear in the intended panel.

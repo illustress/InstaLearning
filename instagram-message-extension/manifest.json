@@ -4,10 +4,19 @@
   "version": "1.0",
   "description": "Learn German-Dutch vocabulary while scrolling Instagram stories and reels",
   "permissions": ["storage"],
-  "host_permissions": ["https://www.instagram.com/*"],
+  "host_permissions": ["https://www.instagram.com/*", "https://instagram.com/*"],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "instalearning@illustress.com",
+      "strict_min_version": "113.0"
+    },
+    "gecko_android": {
+      "strict_min_version": "113.0"
+    }
+  },
   "content_scripts": [
     {
-      "matches": ["https://www.instagram.com/*"],
+      "matches": ["https://www.instagram.com/*", "https://instagram.com/*"],
       "js": ["words.js", "content.js"],
       "css": ["styles.css"]
     }

@@ -4,6 +4,25 @@ let words = [];
 let wordProgress = {};
 let credits = 0;
 let streak = 0;
+const STATUS_ID_BY_PANEL = {
+  settings: 'settingsStatus',
+  words: 'wordStatus',
+  stats: 'statsStatus'
+};
+
+function notifyActiveInstagramTab(message) {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const activeTab = tabs && tabs[0];
+    if (!activeTab?.id || !activeTab?.url || !activeTab.url.includes('instagram.com')) {
+      return;
+    }
+
+    chrome.tabs.sendMessage(activeTab.id, message, () => {
+      // Ignore "Receiving end does not exist" when content script is not available.
+      void chrome.runtime.lastError;
+    });
+  });
+}
 
 // Tab switching
 document.querySelectorAll('.tab').forEach(tab => {
@@ -21,8 +40,9 @@ document.querySelectorAll('.tab').forEach(tab => {
 
 // Load settings on popup open
 function loadSettings() {
-  chrome.storage.sync.get(['direction', 'customWords', 'wordProgress', 'credits', 'streak'], (data) => {
+  chrome.storage.sync.get(['direction', 'correctAction', 'customWords', 'wordProgress', 'credits', 'streak'], (data) => {
     if (data.direction) document.getElementById('direction').value = data.direction;
+    document.getElementById('correctAction').value = data.correctAction || 'next';
     
     words = data.customWords && data.customWords.length > 0 ? data.customWords : DEFAULT_WORDS;
     wordProgress = data.wordProgress || {};
@@ -53,13 +73,10 @@ chrome.storage.onChanged.addListener((changes, area) => {
 // Save settings
 document.getElementById('saveSettings').addEventListener('click', () => {
   const direction = document.getElementById('direction').value;
+  const correctAction = document.getElementById('correctAction').value;
   
-  chrome.storage.sync.set({ direction }, () => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]?.id) {
-        chrome.tabs.sendMessage(tabs[0].id, { type: 'SETTINGS_UPDATED', direction });
-      }
-    });
+  chrome.storage.sync.set({ direction, correctAction }, () => {
+    notifyActiveInstagramTab({ type: 'SETTINGS_UPDATED', direction, correctAction });
     showStatus('settings', 'Settings saved!');
   });
 });
@@ -71,15 +88,24 @@ function loadWordList() {
     wordProgress = data.wordProgress || {};
     
     const listEl = document.getElementById('wordList');
-    listEl.innerHTML = words.map((word, idx) => {
+    listEl.textContent = '';
+
+    words.forEach((word, idx) => {
       const level = wordProgress[idx]?.level || 1;
-      return `
-        <div class="word-item">
-          <span>${word.german} ↔ ${word.dutch}</span>
-          <span class="word-level">L${level}</span>
-        </div>
-      `;
-    }).join('');
+      const item = document.createElement('div');
+      item.className = 'word-item';
+
+      const pair = document.createElement('span');
+      pair.textContent = `${word.german} ↔ ${word.dutch}`;
+
+      const badge = document.createElement('span');
+      badge.className = 'word-level';
+      badge.textContent = `L${level}`;
+
+      item.appendChild(pair);
+      item.appendChild(badge);
+      listEl.appendChild(item);
+    });
   });
 }
 
@@ -109,12 +135,8 @@ document.getElementById('csvImport').addEventListener('change', (e) => {
         wordProgress = {};
         loadWordList();
         showStatus('words', `Imported ${newWords.length} words!`);
-        
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-          if (tabs[0]?.id) {
-            chrome.tabs.sendMessage(tabs[0].id, { type: 'WORDS_UPDATED', words: newWords });
-          }
-        });
+
+        notifyActiveInstagramTab({ type: 'WORDS_UPDATED', words: newWords });
       });
     } else {
       showStatus('words', 'No valid words found in CSV');
@@ -132,12 +154,8 @@ document.getElementById('resetWords').addEventListener('click', () => {
       wordProgress = {};
       loadWordList();
       showStatus('words', 'Reset to default words');
-      
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0]?.id) {
-          chrome.tabs.sendMessage(tabs[0].id, { type: 'WORDS_UPDATED', words: DEFAULT_WORDS });
-        }
-      });
+
+      notifyActiveInstagramTab({ type: 'WORDS_UPDATED', words: DEFAULT_WORDS });
     });
   }
 });
@@ -165,28 +183,58 @@ function loadStats() {
     
     // Show recent sessions
     const sessionList = document.getElementById('sessionList');
+    sessionList.textContent = '';
+
     if (sessions.length === 0) {
-      sessionList.innerHTML = '<div style="opacity: 0.7; text-align: center; padding: 8px;">No sessions yet</div>';
+      const emptyState = document.createElement('div');
+      emptyState.style.opacity = '0.7';
+      emptyState.style.textAlign = 'center';
+      emptyState.style.padding = '8px';
+      emptyState.textContent = 'No sessions yet';
+      sessionList.appendChild(emptyState);
     } else {
       const recentSessions = sessions.slice(-10).reverse();
-      sessionList.innerHTML = recentSessions.map(s => {
+      recentSessions.forEach((s) => {
         const date = new Date(s.date);
         const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         const timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-        return `
-          <div class="session-item">
-            <span class="session-date">${dateStr} ${timeStr}</span>
-            <div class="session-stats">
-              <span class="session-stat">⏱️ ${formatDuration(s.duration)}</span>
-              <span class="session-stat">✓${s.correct} ✗${s.wrong}</span>
-              <span class="session-stat">${s.accuracy}%</span>
-            </div>
-          </div>
-        `;
-      }).join('');
+
+        const item = document.createElement('div');
+        item.className = 'session-item';
+
+        const dateSpan = document.createElement('span');
+        dateSpan.className = 'session-date';
+        dateSpan.textContent = `${dateStr} ${timeStr}`;
+
+        const statsRow = document.createElement('div');
+        statsRow.className = 'session-stats';
+
+        const duration = document.createElement('span');
+        duration.className = 'session-stat';
+        duration.textContent = `⏱️ ${formatDuration(s.duration)}`;
+
+        const score = document.createElement('span');
+        score.className = 'session-stat';
+        score.textContent = `✓${s.correct} ✗${s.wrong}`;
+
+        const accuracy = document.createElement('span');
+        accuracy.className = 'session-stat';
+        accuracy.textContent = `${s.accuracy}%`;
+
+        statsRow.appendChild(duration);
+        statsRow.appendChild(score);
+        statsRow.appendChild(accuracy);
+
+        item.appendChild(dateSpan);
+        item.appendChild(statsRow);
+        sessionList.appendChild(item);
+      });
     }
     
     // Calculate all-time stats
+    const allTimeStatsEl = document.getElementById('allTimeStats');
+    allTimeStatsEl.textContent = '';
+
     if (sessions.length > 0) {
       const totalTime = sessions.reduce((sum, s) => sum + s.duration, 0);
       const totalCorrect = sessions.reduce((sum, s) => sum + s.correct, 0);
@@ -196,17 +244,30 @@ function loadStats() {
       const avgAccuracy = totalCorrect + totalWrong > 0 
         ? Math.round((totalCorrect / (totalCorrect + totalWrong)) * 100) 
         : 0;
-      
-      document.getElementById('allTimeStats').innerHTML = `
-        <strong>📈 All-Time Stats</strong>
-        <p>⏱️ Total time: ${formatDuration(totalTime)}</p>
-        <p>✓ Total correct: ${totalCorrect} | ✗ Wrong: ${totalWrong}</p>
-        <p>💰 Credits earned: ${totalCredits}</p>
-        <p>🔥 Best streak: ${bestStreak}</p>
-        <p>🎯 Avg accuracy: ${avgAccuracy}%</p>
-      `;
-    } else {
-      document.getElementById('allTimeStats').innerHTML = '';
+
+      const title = document.createElement('strong');
+      title.textContent = '📈 All-Time Stats';
+      allTimeStatsEl.appendChild(title);
+
+      const p1 = document.createElement('p');
+      p1.textContent = `⏱️ Total time: ${formatDuration(totalTime)}`;
+      allTimeStatsEl.appendChild(p1);
+
+      const p2 = document.createElement('p');
+      p2.textContent = `✓ Total correct: ${totalCorrect} | ✗ Wrong: ${totalWrong}`;
+      allTimeStatsEl.appendChild(p2);
+
+      const p3 = document.createElement('p');
+      p3.textContent = `💰 Credits earned: ${totalCredits}`;
+      allTimeStatsEl.appendChild(p3);
+
+      const p4 = document.createElement('p');
+      p4.textContent = `🔥 Best streak: ${bestStreak}`;
+      allTimeStatsEl.appendChild(p4);
+
+      const p5 = document.createElement('p');
+      p5.textContent = `🎯 Avg accuracy: ${avgAccuracy}%`;
+      allTimeStatsEl.appendChild(p5);
     }
   });
 }
@@ -237,20 +298,27 @@ document.getElementById('resetProgress').addEventListener('click', () => {
 
 // Show status message
 function showStatus(panel, message) {
-  let statusEl = document.getElementById('wordStatus');
-  if (panel === 'settings') {
-    statusEl = document.querySelector('#settings .status');
-    if (!statusEl) {
-      statusEl = document.createElement('div');
-      statusEl.className = 'status';
-      document.getElementById('settings').appendChild(statusEl);
-    }
-  }
+  const statusEl = getStatusElement(panel);
   
   if (statusEl) {
     statusEl.textContent = message;
     setTimeout(() => statusEl.textContent = '', 3000);
   }
+}
+
+function getStatusElement(panelId) {
+  const statusId = STATUS_ID_BY_PANEL[panelId] || `${panelId}Status`;
+  let statusEl = document.getElementById(statusId);
+  if (statusEl) return statusEl;
+
+  const panelEl = document.getElementById(panelId);
+  if (!panelEl) return null;
+
+  statusEl = document.createElement('div');
+  statusEl.className = 'status';
+  statusEl.id = statusId;
+  panelEl.appendChild(statusEl);
+  return statusEl;
 }
 
 // Initial load
