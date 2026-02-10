@@ -134,6 +134,18 @@
     .word-item:nth-child(odd) {
       background: rgba(255, 255, 255, 0.05);
     }
+    .word-item {
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .word-item:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+    .word-item .word-has-ai {
+      color: #8BC34A;
+      font-size: 10px;
+      margin-left: 4px;
+    }
     .word-level {
       font-size: 10px;
       padding: 2px 6px;
@@ -259,6 +271,217 @@
     .all-time-stats p {
       margin: 4px 0;
     }
+    /* AI Panel Styles */
+    .ai-status {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 16px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+    }
+    .ai-status-icon {
+      font-size: 32px;
+    }
+    .ai-status-text {
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .ai-status.active {
+      background: rgba(76, 175, 80, 0.3);
+    }
+    .ai-status.active .ai-status-text {
+      color: #8BC34A;
+    }
+    .ai-features {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 12px 0;
+    }
+    .ai-feature {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .ai-feature:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+    .ai-feature input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+    input[type="password"] {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: monospace;
+    }
+    .ai-progress {
+      margin: 12px 0;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+    }
+    .ai-progress-bar {
+      height: 8px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .ai-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4CAF50, #8BC34A);
+      border-radius: 4px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+    .ai-progress-text {
+      text-align: center;
+      font-size: 12px;
+      opacity: 0.9;
+    }
+    /* Word Preview Panel */
+    .word-preview {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 12px;
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+    .word-preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.2);
+    }
+    .word-preview-title {
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .word-preview-close {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .word-preview-close:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+    .word-preview-content {
+      padding: 12px;
+    }
+    .word-preview-content .preview-emoji {
+      font-size: 48px;
+      text-align: center;
+      display: block;
+      margin-bottom: 12px;
+    }
+    .word-preview-content .preview-example {
+      font-style: italic;
+      opacity: 0.8;
+      font-size: 12px;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    .word-preview-content .preview-no-ai {
+      text-align: center;
+      padding: 16px;
+      opacity: 0.7;
+      font-size: 12px;
+    }
+    .word-preview-content .ai-card {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .word-preview-content .ai-preview-image {
+      width: 100%;
+      max-width: 220px;
+      border-radius: 10px;
+      display: block;
+      margin: 0 auto 10px;
+    }
+    .word-preview-content .ai-preview-image-placeholder {
+      text-align: center;
+      font-size: 42px;
+      padding: 16px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.06) 100%);
+    }
+    .word-preview-content .ai-mnemonic {
+      background: rgba(255, 217, 61, 0.15);
+      border-left: 3px solid #ffd93d;
+      padding: 10px;
+      border-radius: 0 8px 8px 0;
+      margin-bottom: 10px;
+    }
+    .word-preview-content .ai-mnemonic-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      color: #ffd93d;
+      font-weight: 600;
+      display: block;
+      margin-bottom: 4px;
+    }
+    .word-preview-content .ai-mnemonic p {
+      margin: 0;
+      font-size: 13px;
+      font-style: italic;
+    }
+    .word-preview-content .ai-sentences {
+      background: rgba(76, 175, 80, 0.15);
+      border-left: 3px solid #4CAF50;
+      padding: 10px;
+      border-radius: 0 8px 8px 0;
+    }
+    .word-preview-content .ai-sentences-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      color: #4CAF50;
+      font-weight: 600;
+      display: block;
+      margin-bottom: 4px;
+    }
+    .word-preview-content .ai-sentence {
+      margin: 0 0 2px 0;
+      font-size: 12px;
+    }
+    .word-preview-content .ai-translation {
+      margin: 0 0 8px 0;
+      font-size: 11px;
+      opacity: 0.7;
+      font-style: italic;
+    }
+    .word-preview-content .ai-translation:last-child {
+      margin-bottom: 0;
+    }
+    .word-preview-content .ai-image-prompt {
+      margin-top: 10px;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      font-size: 11px;
+      opacity: 0.8;
+    }
+    .word-preview-content .ai-image-prompt::before {
+      content: '🎨 ';
+    }
   </style>
 </head>
 <body>
@@ -267,6 +490,7 @@
   <div class="tabs">
     <button class="tab active" data-tab="settings">Settings</button>
     <button class="tab" data-tab="words">Words</button>
+    <button class="tab" data-tab="ai">🤖 AI</button>
     <button class="tab" data-tab="stats">Stats</button>
   </div>
 
@@ -330,6 +554,14 @@
     <div class="word-list" id="wordList">
       Loading...
     </div>
+
+    <div class="word-preview" id="wordPreview" style="display: none;">
+      <div class="word-preview-header">
+        <span class="word-preview-title" id="previewTitle"></span>
+        <button class="word-preview-close" id="closePreview">✕</button>
+      </div>
+      <div class="word-preview-content" id="previewContent"></div>
+    </div>
     
     <div class="file-input-wrapper">
       <button class="secondary">📁 Import CSV</button>
@@ -339,6 +571,72 @@
     <button id="resetWords" class="secondary">↺ Reset to Default</button>
     
     <div class="status" id="wordStatus"></div>
+  </div>
+
+  <!-- AI Panel -->
+  <div class="panel" id="ai">
+    <div class="ai-status" id="aiStatus">
+      <div class="ai-status-icon">🤖</div>
+      <div class="ai-status-text">AI Cards Disabled</div>
+    </div>
+
+    <div class="input-group">
+      <label>Enable AI Cards</label>
+      <select id="aiEnabled">
+        <option value="false">Disabled</option>
+        <option value="true">Enabled</option>
+      </select>
+    </div>
+
+    <div class="input-group">
+      <label>AI Provider</label>
+      <select id="aiProvider">
+        <option value="openai">OpenAI (GPT-4o-mini)</option>
+        <option value="anthropic">Anthropic (Claude Haiku)</option>
+      </select>
+    </div>
+
+    <div class="input-group">
+      <label>API Key</label>
+      <input type="password" id="aiApiKey" placeholder="sk-... or sk-ant-...">
+    </div>
+
+    <div class="ai-features">
+      <label class="ai-feature">
+        <input type="checkbox" id="aiMnemonics" checked>
+        <span>💡 Memory Tricks</span>
+      </label>
+      <label class="ai-feature">
+        <input type="checkbox" id="aiSentences" checked>
+        <span>📝 Smart Sentences</span>
+      </label>
+      <label class="ai-feature">
+        <input type="checkbox" id="aiImages" checked>
+        <span>🎨 Visual Prompts</span>
+      </label>
+    </div>
+
+    <button id="saveAiSettings">Save AI Settings</button>
+    <button id="generateAllCards" class="secondary">🚀 Generate All Cards</button>
+    <button id="testAi" class="secondary">🧪 Test Connection</button>
+    <button id="clearAiCache" class="secondary">🗑️ Clear AI Cache</button>
+
+    <div class="ai-progress" id="aiProgress" style="display: none;">
+      <div class="ai-progress-bar">
+        <div class="ai-progress-fill" id="aiProgressFill"></div>
+      </div>
+      <div class="ai-progress-text" id="aiProgressText">0 / 0</div>
+    </div>
+
+    <div class="status" id="aiTestStatus"></div>
+
+    <div class="how-it-works">
+      <strong>How AI Cards Work:</strong>
+      <p>💡 Generates memorable mnemonics</p>
+      <p>📝 Creates personalized example sentences</p>
+      <p>🎨 Suggests visual imagery for each word</p>
+      <p>💰 Uses ~0.001$ per word (GPT-4o-mini)</p>
+    </div>
   </div>
 
   <!-- Stats Panel -->

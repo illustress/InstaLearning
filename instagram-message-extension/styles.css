@@ -794,3 +794,163 @@
     font-size: 18px;
   }
 }
+
+
+/* ============ AI CARDS ============ */
+
+.il-ai-card {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 12px 0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.il-ai-image-placeholder {
+  text-align: center;
+  font-size: 64px;
+  padding: 20px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+.il-ai-image img {
+  width: 100%;
+  max-width: 200px;
+  height: auto;
+  border-radius: 12px;
+  display: block;
+  margin: 0 auto 12px;
+}
+
+.il-ai-label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  opacity: 0.7;
+  margin-bottom: 6px;
+  color: #ffd93d;
+  font-weight: 600;
+}
+
+.il-ai-mnemonic {
+  background: rgba(255, 217, 61, 0.15);
+  border-left: 3px solid #ffd93d;
+  padding: 12px;
+  border-radius: 0 8px 8px 0;
+  margin-bottom: 12px;
+}
+
+.il-ai-mnemonic p {
+  margin: 0;
+  color: white;
+  font-size: 14px;
+  line-height: 1.5;
+  font-style: italic;
+}
+
+.il-ai-sentences {
+  background: rgba(76, 175, 80, 0.15);
+  border-left: 3px solid #4CAF50;
+  padding: 12px;
+  border-radius: 0 8px 8px 0;
+}
+
+.il-ai-sentence {
+  margin: 0 0 4px 0;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.il-ai-translation {
+  margin: 0 0 12px 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  font-style: italic;
+}
+
+.il-ai-translation:last-child {
+  margin-bottom: 0;
+}
+
+/* AI Loading State */
+.il-ai-loading {
+  text-align: center;
+  padding: 20px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.il-ai-loading::after {
+  content: '';
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: aiSpin 0.8s linear infinite;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+@keyframes aiSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* AI Toggle Button */
+.il-ai-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 20px;
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+  margin: 8px auto;
+  transition: all 0.2s;
+}
+
+.il-ai-toggle:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+  transform: scale(1.02);
+}
+
+.il-ai-toggle.active {
+  background: linear-gradient(135deg, #4CAF50 0%, #8BC34A 100%);
+}
+
+.il-ai-badge {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* Mobile adjustments for AI cards */
+@media (max-width: 480px) {
+  .il-ai-card {
+    padding: 12px;
+    margin: 8px 0;
+  }
+
+  .il-ai-image-placeholder {
+    font-size: 48px;
+    padding: 16px;
+  }
+
+  .il-ai-mnemonic p,
+  .il-ai-sentence {
+    font-size: 13px;
+  }
+
+  .il-ai-translation {
+    font-size: 11px;
+  }
+}

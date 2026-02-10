@@ -7,7 +7,8 @@ let streak = 0;
 const STATUS_ID_BY_PANEL = {
   settings: 'settingsStatus',
   words: 'wordStatus',
-  stats: 'statsStatus'
+  stats: 'statsStatus',
+  ai: 'aiTestStatus'
 };
 
 function notifyActiveInstagramTab(message) {
@@ -104,28 +105,143 @@ function loadWordList() {
   chrome.storage.sync.get(['customWords', 'wordProgress'], (data) => {
     words = data.customWords && data.customWords.length > 0 ? data.customWords : DEFAULT_WORDS;
     wordProgress = data.wordProgress || {};
-    
-    const listEl = document.getElementById('wordList');
-    listEl.textContent = '';
+    chrome.storage.local.get(['aiCardCache'], (localData) => {
+      const aiCache = localData.aiCardCache || {};
+      
+      const listEl = document.getElementById('wordList');
+      listEl.textContent = '';
 
-    words.forEach((word, idx) => {
-      const level = wordProgress[idx]?.level || 1;
-      const item = document.createElement('div');
-      item.className = 'word-item';
+      words.forEach((word, idx) => {
+        const level = wordProgress[idx]?.level || 1;
+        const cacheKey = `${word.german}_${word.dutch}`.toLowerCase().replace(/\s+/g, '_');
+        const hasAI = !!aiCache[cacheKey];
+        
+        const item = document.createElement('div');
+        item.className = 'word-item';
+        item.dataset.index = idx;
 
-      const pair = document.createElement('span');
-      pair.textContent = `${word.german} ↔ ${word.dutch}`;
+        const pair = document.createElement('span');
+        
+        // Create text node for the word pair
+        const pairText = document.createTextNode(`${word.german} ↔ ${word.dutch} `);
+        pair.appendChild(pairText);
+        
+        // Add AI indicator if card exists
+        if (hasAI) {
+          const aiIndicator = document.createElement('span');
+          aiIndicator.className = 'word-has-ai';
+          aiIndicator.textContent = '🤖';
+          aiIndicator.title = 'AI card available';
+          pair.appendChild(aiIndicator);
+        }
 
-      const badge = document.createElement('span');
-      badge.className = 'word-level';
-      badge.textContent = `L${level}`;
+        const badge = document.createElement('span');
+        badge.className = 'word-level';
+        badge.textContent = `L${level}`;
 
-      item.appendChild(pair);
-      item.appendChild(badge);
-      listEl.appendChild(item);
+        item.appendChild(pair);
+        item.appendChild(badge);
+        
+        item.addEventListener('click', () => showWordPreview(idx));
+        
+        listEl.appendChild(item);
+      });
     });
   });
 }
+
+// Show word preview with AI card
+function showWordPreview(index) {
+  chrome.storage.sync.get(['customWords'], (data) => {
+    const wordList = data.customWords?.length > 0 ? data.customWords : DEFAULT_WORDS;
+    const word = wordList[index];
+    if (!word) return;
+
+    chrome.storage.local.get(['aiCardCache'], (localData) => {
+      const aiCache = localData.aiCardCache || {};
+      const cacheKey = `${word.german}_${word.dutch}`.toLowerCase().replace(/\s+/g, '_');
+      const aiCard = aiCache[cacheKey];
+      
+      const previewEl = document.getElementById('wordPreview');
+      const titleEl = document.getElementById('previewTitle');
+      const contentEl = document.getElementById('previewContent');
+      
+      titleEl.textContent = `${word.german} ↔ ${word.dutch}`;
+      
+      let html = '';
+      
+      // Emoji
+      if (word.emoji) {
+        html += `<span class="preview-emoji">${escapeHtml(word.emoji)}</span>`;
+      }
+      
+      // Original example
+      if (word.example) {
+        html += `<div class="preview-example">"${escapeHtml(word.example)}"</div>`;
+      }
+      
+      // AI Card content
+      if (aiCard) {
+        html += '<div class="ai-card">';
+
+        if (aiCard.imageUrl) {
+          html += `<img class="ai-preview-image" src="${escapeHtml(aiCard.imageUrl)}" alt="${escapeHtml(word.german)}">`;
+        } else if (aiCard.imagePrompt) {
+          html += `<div class="ai-preview-image-placeholder" title="${escapeHtml(aiCard.imagePrompt)}">🎨 ${escapeHtml(word.emoji || '📝')}</div>`;
+        }
+        
+        if (aiCard.mnemonic) {
+          html += `<div class="ai-mnemonic">
+            <span class="ai-mnemonic-label">💡 Memory Trick</span>
+            <p>${escapeHtml(aiCard.mnemonic)}</p>
+          </div>`;
+        }
+        
+        if (aiCard.smartSentences) {
+          html += '<div class="ai-sentences">';
+          html += '<span class="ai-sentences-label">📝 AI Examples</span>';
+          
+          if (aiCard.smartSentences.sentence1) {
+            html += `<p class="ai-sentence">${escapeHtml(aiCard.smartSentences.sentence1)}</p>`;
+            html += `<p class="ai-translation">${escapeHtml(aiCard.smartSentences.sentence1_translation || '')}</p>`;
+          }
+          if (aiCard.smartSentences.sentence2) {
+            html += `<p class="ai-sentence">${escapeHtml(aiCard.smartSentences.sentence2)}</p>`;
+            html += `<p class="ai-translation">${escapeHtml(aiCard.smartSentences.sentence2_translation || '')}</p>`;
+          }
+          
+          html += '</div>';
+        }
+        
+        if (aiCard.imagePrompt) {
+          html += `<div class="ai-image-prompt">${escapeHtml(aiCard.imagePrompt)}</div>`;
+        }
+        
+        html += '</div>';
+      } else {
+        html += '<div class="preview-no-ai">No AI card generated yet.<br>Go to AI tab → Generate All Cards</div>';
+      }
+      
+      contentEl.innerHTML = html;
+      previewEl.style.display = 'block';
+    });
+  });
+}
+
+// HTML escape helper
+function escapeHtml(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Close preview
+document.getElementById('closePreview').addEventListener('click', () => {
+  document.getElementById('wordPreview').style.display = 'none';
+});
 
 // CSV Import
 document.getElementById('csvImport').addEventListener('change', (e) => {
@@ -341,3 +457,360 @@ function getStatusElement(panelId) {
 
 // Initial load
 loadStats();
+loadAISettings();
+
+// ============ AI SETTINGS ============
+
+function loadAISettings() {
+  chrome.storage.sync.get(['aiSettings'], (data) => {
+    const settings = data.aiSettings || {};
+    
+    document.getElementById('aiEnabled').value = settings.enabled ? 'true' : 'false';
+    document.getElementById('aiProvider').value = settings.provider || 'openai';
+    document.getElementById('aiApiKey').value = settings.apiKey || '';
+    document.getElementById('aiMnemonics').checked = settings.generateMnemonics !== false;
+    document.getElementById('aiSentences').checked = settings.generateSentences !== false;
+    document.getElementById('aiImages').checked = settings.generateImages !== false;
+    
+    updateAIStatus(settings.enabled, !!settings.apiKey);
+  });
+}
+
+function updateAIStatus(enabled, hasKey) {
+  const statusEl = document.getElementById('aiStatus');
+  const textEl = statusEl.querySelector('.ai-status-text');
+  
+  if (enabled) {
+    statusEl.classList.add('active');
+    textEl.textContent = hasKey ? 'AI Cards Enabled ✓' : 'AI Enabled (add API key)';
+  } else {
+    statusEl.classList.remove('active');
+    textEl.textContent = 'AI Cards Disabled';
+  }
+}
+
+function getAISettingsFromForm() {
+  const settings = {
+    enabled: document.getElementById('aiEnabled').value === 'true',
+    provider: document.getElementById('aiProvider').value,
+    apiKey: document.getElementById('aiApiKey').value.trim(),
+    generateMnemonics: document.getElementById('aiMnemonics').checked,
+    generateSentences: document.getElementById('aiSentences').checked,
+    generateImages: document.getElementById('aiImages').checked,
+    cacheCards: true
+  };
+  settings.model = settings.provider === 'openai' ? 'gpt-4o-mini' : 'claude-3-haiku-20240307';
+  return settings;
+}
+
+function persistAISettings(settings, showFeedback = false) {
+  chrome.storage.sync.set({ aiSettings: settings }, () => {
+    updateAIStatus(settings.enabled, !!settings.apiKey);
+    if (showFeedback) {
+      showStatus('ai', 'AI settings saved!');
+    }
+  });
+}
+
+function loadAICache() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['aiCardCache'], (data) => {
+      resolve(data.aiCardCache || {});
+    });
+  });
+}
+
+function saveAICache(cache) {
+  return new Promise((resolve) => {
+    chrome.storage.local.set({ aiCardCache: cache }, () => {
+      resolve();
+    });
+  });
+}
+
+document.getElementById('saveAiSettings').addEventListener('click', () => {
+  const settings = getAISettingsFromForm();
+  persistAISettings(settings, true);
+});
+
+document.getElementById('testAi').addEventListener('click', async () => {
+  const apiKey = document.getElementById('aiApiKey').value.trim();
+  const provider = document.getElementById('aiProvider').value;
+  
+  if (!apiKey) {
+    showStatus('ai', 'Enter an API key first');
+    return;
+  }
+  
+  showStatus('ai', 'Testing connection...');
+  
+  try {
+    let response;
+    
+    if (provider === 'openai') {
+      response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: 'Say "OK" if you can read this.' }],
+          max_tokens: 10
+        })
+      });
+    } else {
+      response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'Content-Type': 'application/json',
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-3-haiku-20240307',
+          max_tokens: 10,
+          messages: [{ role: 'user', content: 'Say "OK" if you can read this.' }]
+        })
+      });
+    }
+    
+    if (response.ok) {
+      showStatus('ai', '✓ Connection successful!');
+    } else {
+      const error = await response.json().catch(() => ({}));
+      showStatus('ai', `✗ Error: ${error.error?.message || response.status}`);
+    }
+  } catch (err) {
+    showStatus('ai', `✗ Connection failed: ${err.message}`);
+  }
+});
+
+document.getElementById('clearAiCache').addEventListener('click', () => {
+  if (confirm('Clear all cached AI cards? They will be regenerated on next use.')) {
+    chrome.storage.local.set({ aiCardCache: {} }, () => {
+      showStatus('ai', 'AI cache cleared');
+    });
+  }
+});
+
+// Generate all AI cards
+document.getElementById('generateAllCards').addEventListener('click', async () => {
+  const apiKey = document.getElementById('aiApiKey').value.trim();
+  const provider = document.getElementById('aiProvider').value;
+  
+  if (!apiKey) {
+    showStatus('ai', 'Enter an API key first');
+    return;
+  }
+  
+  // Get current words and cache
+  chrome.storage.sync.get(['customWords', 'aiSettings'], async (data) => {
+    const wordList = data.customWords?.length > 0 ? data.customWords : DEFAULT_WORDS;
+    const cache = await loadAICache();
+    const settings = data.aiSettings || {};
+    
+    // Filter words that need generation
+    const wordsToGenerate = wordList.filter(word => {
+      const key = `${word.german}_${word.dutch}`.toLowerCase().replace(/\s+/g, '_');
+      return !cache[key];
+    });
+    
+    if (wordsToGenerate.length === 0) {
+      showStatus('ai', 'All cards already generated!');
+      return;
+    }
+    
+    // Show progress
+    const progressEl = document.getElementById('aiProgress');
+    const progressFill = document.getElementById('aiProgressFill');
+    const progressText = document.getElementById('aiProgressText');
+    progressEl.style.display = 'block';
+    
+    const generateBtn = document.getElementById('generateAllCards');
+    generateBtn.disabled = true;
+    generateBtn.textContent = '⏳ Generating...';
+    
+    let generated = 0;
+    let errors = 0;
+    
+    for (const word of wordsToGenerate) {
+      try {
+        const card = await generateCardForWord(word, apiKey, provider, settings);
+        
+        if (card) {
+          const key = `${word.german}_${word.dutch}`.toLowerCase().replace(/\s+/g, '_');
+          cache[key] = { ...card, cachedAt: Date.now() };
+          generated++;
+        }
+      } catch (err) {
+        console.warn('Failed to generate card for', word.german, err);
+        errors++;
+      }
+      
+      // Update progress
+      const total = wordsToGenerate.length;
+      const done = generated + errors;
+      progressFill.style.width = `${(done / total) * 100}%`;
+      progressText.textContent = `${done} / ${total} (${generated} ✓, ${errors} ✗)`;
+      
+      // Save cache periodically
+      if (done % 5 === 0) {
+        await saveAICache(cache);
+      }
+      
+      // Rate limiting
+      await new Promise(r => setTimeout(r, 600));
+    }
+    
+    // Final save
+    await saveAICache(cache);
+    
+    generateBtn.disabled = false;
+    generateBtn.textContent = '🚀 Generate All Cards';
+    
+    setTimeout(() => {
+      progressEl.style.display = 'none';
+    }, 3000);
+    
+    showStatus('ai', `Done! ${generated} cards generated, ${errors} errors`);
+  });
+});
+
+// Generate a single card (used by batch generation)
+async function generateCardForWord(word, apiKey, provider, settings) {
+  const model = provider === 'openai' ? 'gpt-4o-mini' : 'claude-3-haiku-20240307';
+  
+  const prompt = `Generate learning content for this German-Dutch word pair:
+German: ${word.german}
+Dutch: ${word.dutch}
+
+Return JSON with:
+- mnemonic: A memorable trick (1-2 sentences) connecting the German and Dutch words using sound/visual associations
+- sentence1: A simple German sentence using the word
+- sentence1_translation: Dutch translation of sentence1
+- sentence2: Another German sentence (different context)
+- sentence2_translation: Dutch translation of sentence2
+- imagePrompt: A short description (under 30 words) of a simple illustration representing this word
+
+Keep sentences A1-A2 level. Make the mnemonic fun and memorable.
+Return ONLY valid JSON, no other text.`;
+
+  let response;
+  
+  if (provider === 'openai') {
+    response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 400,
+        temperature: 0.7
+      })
+    });
+  } else {
+    response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'Content-Type': 'application/json',
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 400,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+  }
+  
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  const content = provider === 'openai' 
+    ? data.choices[0]?.message?.content 
+    : data.content[0]?.text;
+  
+  if (!content) return null;
+  
+  // Parse JSON from response
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return null;
+  
+  const parsed = JSON.parse(jsonMatch[0]);
+  let imageUrl = null;
+
+  if (provider === 'openai' && settings.generateImages !== false && parsed.imagePrompt) {
+    imageUrl = await generateImageForPrompt(apiKey, parsed.imagePrompt);
+  }
+  
+  return {
+    german: word.german,
+    dutch: word.dutch,
+    emoji: word.emoji || '',
+    mnemonic: parsed.mnemonic,
+    smartSentences: {
+      sentence1: parsed.sentence1,
+      sentence1_translation: parsed.sentence1_translation,
+      sentence2: parsed.sentence2,
+      sentence2_translation: parsed.sentence2_translation
+    },
+    imagePrompt: parsed.imagePrompt,
+    imageUrl,
+    generatedAt: Date.now()
+  };
+}
+
+async function generateImageForPrompt(apiKey, imagePrompt) {
+  try {
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'dall-e-3',
+        prompt: `Simple, cute cartoon flashcard illustration: ${imagePrompt}. Style: minimal, colorful, educational, child-friendly.`,
+        n: 1,
+        size: '1024x1024',
+        quality: 'standard'
+      })
+    });
+
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.data?.[0]?.url || null;
+  } catch {
+    return null;
+  }
+}
+
+// Update status when AI enabled changes
+document.getElementById('aiEnabled').addEventListener('change', () => {
+  const settings = getAISettingsFromForm();
+  persistAISettings(settings, false);
+});
+
+document.getElementById('aiProvider').addEventListener('change', () => {
+  persistAISettings(getAISettingsFromForm(), false);
+});
+document.getElementById('aiMnemonics').addEventListener('change', () => {
+  persistAISettings(getAISettingsFromForm(), false);
+});
+document.getElementById('aiSentences').addEventListener('change', () => {
+  persistAISettings(getAISettingsFromForm(), false);
+});
+document.getElementById('aiImages').addEventListener('change', () => {
+  persistAISettings(getAISettingsFromForm(), false);
+});
+document.getElementById('aiApiKey').addEventListener('blur', () => {
+  persistAISettings(getAISettingsFromForm(), false);
+});

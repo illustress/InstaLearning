@@ -352,7 +352,7 @@ function updateProgressBar(wordIndex) {
   }
 }
 
-function showWordInfo(word, direction) {
+async function showWordInfo(word, direction) {
   const infoEl = quizOverlay?.querySelector('.il-word-info');
   if (!infoEl || !word) return;
   
@@ -391,6 +391,17 @@ function showWordInfo(word, direction) {
     exampleEl.className = 'il-example';
     exampleEl.textContent = `"${example}"`;
     infoEl.appendChild(exampleEl);
+  }
+
+  // Show pre-generated AI card if available (no loading, instant display)
+  if (window.InstaLearningAI?.settings?.enabled) {
+    const cachedCard = window.InstaLearningAI.getCachedCard(word);
+    
+    if (cachedCard) {
+      const aiContainer = document.createElement('div');
+      aiContainer.innerHTML = window.InstaLearningAI.renderAICard(cachedCard);
+      infoEl.appendChild(aiContainer);
+    }
   }
 }
 
@@ -1252,6 +1263,12 @@ function handleSwipe() {
 async function init() {
   console.log('[InstaLearning] Initializing...');
   await loadData();
+  
+  // Initialize AI cards if available
+  if (window.InstaLearningAI) {
+    await window.InstaLearningAI.initAICards();
+  }
+  
   console.log(`[InstaLearning] Loaded - credits: ${credits}, words: ${words.length}, path: ${location.pathname}`);
   
   // Always show game picker on Instagram load

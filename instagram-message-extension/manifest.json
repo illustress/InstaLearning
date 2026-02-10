@@ -1,10 +1,15 @@
 {
   "manifest_version": 3,
   "name": "InstaLearning",
-  "version": "1.0",
+  "version": "1.1",
   "description": "Learn German-Dutch vocabulary while scrolling Instagram stories and reels",
   "permissions": ["storage"],
-  "host_permissions": ["https://www.instagram.com/*", "https://instagram.com/*"],
+  "host_permissions": [
+    "https://www.instagram.com/*",
+    "https://instagram.com/*",
+    "https://api.openai.com/*",
+    "https://api.anthropic.com/*"
+  ],
   "browser_specific_settings": {
     "gecko": {
       "id": "instalearning@illustress.com",
@@ -17,7 +22,7 @@
   "content_scripts": [
     {
       "matches": ["https://www.instagram.com/*", "https://instagram.com/*"],
-      "js": ["words.js", "content.js"],
+      "js": ["words.js", "ai-cards.js", "content.js"],
       "css": ["styles.css"]
     }
   ],
